@@ -18,6 +18,7 @@ import {
   SensorTelemetryAlert,
 } from "../types";
 import { AFRICAN_COUNTRIES } from "../data/countries";
+import { supabase } from "../lib/supabase";
 
 
 const VIEW_ALIASES: Record<string, string> = {
@@ -26,6 +27,12 @@ const VIEW_ALIASES: Record<string, string> = {
   "crop-doctor": "crop-doctor", crop_doctor: "crop_doctor", marketplace: "marketplace", finance: "finance",
   logistics: "logistics", climate: "climate", trade: "trade", government: "government", cooperative: "cooperative",
   agribusiness: "agribusiness", consent: "consent", admin: "admin",
+};
+
+const EMPTY_FARM: Farm = {
+  id: "", name: "", ownerName: "", country: "", region: "", totalHectares: 0, primaryCrop: "",
+  overallHealthScore: 0, soilHealth: 0, cropHealth: 0, waterIndex: 0, weatherRisk: 0, pestRisk: 0,
+  expectedYieldTonnesPerHa: 0, fields: [], sensorsOnline: 0, lastSatellitePass: "", verifiedStatus: "unverified", trustScore: 0,
 };
 
 const getViewFromLocation = () => {
@@ -131,7 +138,7 @@ interface AppContextType {
 
   // Digital Document Repository
   farmerDocuments: FarmerDocument[];
-  addFarmerDocument: (doc: Omit<FarmerDocument, "id" | "uploadDate" | "sha256Hash">) => void;
+  addFarmerDocument: (doc: Omit<FarmerDocument, "id" | "uploadDate">) => void;
   deleteFarmerDocument: (id: string) => void;
   shareFarmerDocument: (id: string, entityName: string) => void;
 
@@ -383,13 +390,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; initialRole?: Us
   };
 
   // Farmer Document Repository Actions
-  const addFarmerDocument = (doc: Omit<FarmerDocument, "id" | "uploadDate" | "sha256Hash">) => {
-    const randomHex = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  const addFarmerDocument = (doc: Omit<FarmerDocument, "id" | "uploadDate">) => {
     const newDoc: FarmerDocument = {
       ...doc,
       id: `doc-${Date.now()}`,
       uploadDate: new Date().toISOString().slice(0, 10),
-      sha256Hash: randomHex,
     };
     setFarmerDocuments((prev) => [newDoc, ...prev]);
     if (isOffline) {

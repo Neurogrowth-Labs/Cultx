@@ -60,6 +60,7 @@ export const DocumentRepository: React.FC = () => {
   const [newExpiry, setNewExpiry] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [selectedFileName, setSelectedFileName] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileSizeStr, setFileSizeStr] = useState<string>("3.2 MB");
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -128,7 +129,24 @@ export const DocumentRepository: React.FC = () => {
     }, 2000);
   };
 
-  const handleCreateDocument = (e: React.FormEvent) => {
+  const selectFile = (file: File) => {
+    if (file.size > 25 * 1024 * 1024) {
+      setUploadError("Files must be 25 MB or smaller.");
+      return;
+    }
+    setUploadError(null);
+    setSelectedFile(file);
+    setSelectedFileName(file.name);
+    setFileSizeStr(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
+    if (!newTitle) setNewTitle(file.name.replace(/\.[^/.]+$/, ""));
+  };
+
+  const sha256 = async (file: File) => {
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  };
+
+  const handleCreateDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
       setUploadError("Please provide a document title");
@@ -138,20 +156,26 @@ export const DocumentRepository: React.FC = () => {
       setUploadError("Please specify the issuing authority");
       return;
     }
+    if (!selectedFile) {
+      setUploadError("Select a document to calculate its SHA-256 integrity hash.");
+      return;
+    }
 
+    const hash = await sha256(selectedFile);
     addFarmerDocument({
       farmId: currentFarm.id,
       title: newTitle.trim(),
       category: newCategory,
       fileType: "pdf",
       fileSize: fileSizeStr || "2.4 MB",
+      sha256Hash: hash,
       issuingAuthority: newAuthority.trim(),
       documentNumber:
         newDocNumber.trim() ||
         `DOC-${newCategory.slice(0, 3).toUpperCase()}-${Math.floor(10000 + Math.random() * 90000)}`,
       parcelOrContractRef: newParcelRef.trim() || `${currentFarm.name} Registered Asset`,
-      verificationStatus: "Registry Validated",
-      securityTier: "Deeds Office Ledger Anchor",
+      verificationStatus: "Under Review",
+      securityTier: "AES-256 Encrypted Vault",
       sharedWith: [],
       expiryDate: newExpiry || undefined,
       notes: newNotes.trim() || "Uploaded to secure farmer digital vault.",
@@ -166,6 +190,7 @@ export const DocumentRepository: React.FC = () => {
     setNewExpiry("");
     setNewNotes("");
     setSelectedFileName("");
+    setSelectedFile(null);
     setUploadError(null);
     setIsUploadModalOpen(false);
   };
@@ -568,10 +593,7 @@ export const DocumentRepository: React.FC = () => {
                     e.preventDefault();
                     setIsDragging(false);
                     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      const file = e.dataTransfer.files[0];
-                      setSelectedFileName(file.name);
-                      setFileSizeStr(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
-                      if (!newTitle) setNewTitle(file.name.replace(/\.[^/.]+$/, ""));
+                      selectFile(e.dataTransfer.files[0]);
                     }
                   }}
                   className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all ${
@@ -595,10 +617,7 @@ export const DocumentRepository: React.FC = () => {
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          setSelectedFileName(file.name);
-                          setFileSizeStr(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
-                          if (!newTitle) setNewTitle(file.name.replace(/\.[^/.]+$/, ""));
+                          selectFile(e.target.files[0]);
                         }
                       }}
                     />

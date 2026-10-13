@@ -54,7 +54,7 @@ Row Level Security is enabled on every table. A user may access only records who
 ### 1. Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 2. Configure the environment
@@ -72,10 +72,14 @@ VITE_SUPABASE_URL="https://anityrvwhyocvnvyxmqp.supabase.co"
 VITE_SUPABASE_PUBLISHABLE_KEY="your_supabase_publishable_key"
 ```
 
-Set this optional server variable when enabling AI routes:
+Set these server variables in the deployment secret manager. The `SUPABASE_*`
+aliases allow the backend to validate bearer tokens without relying on Vite
+build-time configuration. `GEMINI_API_KEY` is optional when AI routes are disabled:
 
 ```dotenv
 GEMINI_API_KEY="your_gemini_api_key"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_PUBLISHABLE_KEY="your_supabase_publishable_key"
 ```
 
 The Supabase publishable key is safe for browser use. **Never** place a Supabase `service_role` key in a Vite environment variable or client-side file; RLS policies are the data-protection boundary for browser access.
@@ -107,9 +111,9 @@ The development server listens on `http://localhost:3000` by default.
 
 ## Authentication and authorization
 
-1. The client signs users in directly with Supabase Auth and retains the Supabase session locally.
+1. The client signs users in directly with Supabase Auth and retains the session only for the current browser session.
 2. API calls attach the active access token as `Authorization: Bearer <token>`.
-3. Express validates the token through Supabase Auth, obtains the profile role, and applies route-level role checks.
+3. Express validates the token through Supabase Auth, obtains the profile role, and applies route-level role checks. Unknown or unmodeled resource grants are denied by default.
 4. Workspace and notification requests go directly to Supabase under the user's JWT, where RLS applies a second authorization boundary.
 
 Supported roles are `farmer`, `cooperative`, `buyer`, `agribusiness`, `logistics`, `finance`, `government`, `researcher`, `input_supplier`, and `superadmin`. New users receive `farmer`; privileged roles must only be assigned through a verified, audited administrative process.

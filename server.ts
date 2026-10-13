@@ -26,6 +26,11 @@ app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https: wss:");
+  }
   next();
 });
 
@@ -41,7 +46,7 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (error instanceof SyntaxError && "body" in error) {
     return res.status(400).json({ error: { code: "INVALID_JSON", message: "Request body must be valid JSON.", requestId: res.locals.requestId } } satisfies ApiErrorBody);
