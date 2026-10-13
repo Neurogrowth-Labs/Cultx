@@ -89,17 +89,8 @@ export const BiometricAuthModal: React.FC<BiometricAuthModalProps> = ({
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (enteredPin.length >= 4) {
-      setStatus("success");
-      setStatusMessage("Passkey PIN verified successfully.");
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-        onClose();
-      }, 900);
-    } else {
-      setStatus("error");
-      setStatusMessage("Please enter at least a 4-digit security PIN.");
-    }
+    setStatus("error");
+    setStatusMessage("PIN fallback is disabled. Sensitive access requires a server-verified passkey.");
   };
 
   return (

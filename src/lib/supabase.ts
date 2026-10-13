@@ -19,12 +19,12 @@ export type SupabaseSession = { access_token: string; refresh_token: string; use
 type AuthResponse = { access_token?: string; refresh_token?: string; user?: SupabaseUser; error?: { message?: string } };
 
 const readSession = (): SupabaseSession | null => {
-  try { return JSON.parse(window.localStorage.getItem(authStorageKey) || "null"); } catch { return null; }
+  try { return JSON.parse(window.sessionStorage.getItem(authStorageKey) || "null"); } catch { return null; }
 };
 
 const storeSession = (session: SupabaseSession | null) => {
-  if (session) window.localStorage.setItem(authStorageKey, JSON.stringify(session));
-  else window.localStorage.removeItem(authStorageKey);
+  if (session) window.sessionStorage.setItem(authStorageKey, JSON.stringify(session));
+  else window.sessionStorage.removeItem(authStorageKey);
 };
 
 const authRequest = async (path: string, init: RequestInit = {}) => {
@@ -75,6 +75,31 @@ export const supabase = {
     if (!response.ok) return null;
     const rows = await response.json() as Array<{ role: string }>;
     return rows[0] || null;
+  },
+  async getWorkspace() {
+    const session = readSession();
+    if (!session) return null;
+    const response = await fetch(`${supabaseUrl}/rest/v1/workspaces?user_id=eq.${encodeURIComponent(session.user.id)}&select=data`, {
+      headers: { apikey: supabaseKey, Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!response.ok) throw new Error("Workspace could not be loaded.");
+    const rows = await response.json() as Array<{ data?: unknown }>;
+    return rows[0]?.data || null;
+  },
+  async saveWorkspace(data: Record<string, unknown>) {
+    const session = readSession();
+    if (!session) throw new Error("An active session is required to save a workspace.");
+    const response = await fetch(`${supabaseUrl}/rest/v1/workspaces?on_conflict=user_id`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify({ user_id: session.user.id, data, updated_at: new Date().toISOString() }),
+    });
+    if (!response.ok) throw new Error("Workspace could not be saved.");
   },
 
   subscribeToNotifications(userId: string, onInsert: (record: unknown) => void) {

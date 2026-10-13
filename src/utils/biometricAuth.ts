@@ -100,59 +100,19 @@ export async function enrollBiometricPasskey(
       })) as PublicKeyCredential | null;
 
       if (credential) {
-        const credData: BiometricCredential = {
-          id: credential.id,
-          type: credential.type,
-          createdAt: new Date().toISOString(),
-          deviceName: navigator.userAgent.includes("Android")
-            ? "Android Biometric Sensor"
-            : navigator.userAgent.includes("iPhone") || navigator.userAgent.includes("Mac")
-            ? "Apple TouchID / FaceID"
-            : "Hardware Security Passkey",
-          userName,
-        };
-        localStorage.setItem("cultx_biometric_credential", JSON.stringify(credData));
-
         return {
-          success: true,
-          message: "Biometric Passkey registered successfully on this device.",
+          success: false,
+          message: "Passkey enrollment requires server-side credential registration before it can be enabled.",
           method: "webauthn_hardware",
         };
       }
     } catch (err: any) {
-      // In sandboxed iframes or browsers without hardware biometrics, WebAuthn may reject with NotAllowedError
-      console.warn("Hardware WebAuthn enrollment note:", err?.message || err);
-      // Fallback: Store trusted cryptographic passkey in secure local store
-      const fallbackCred: BiometricCredential = {
-        id: `passkey-${Date.now()}`,
-        type: "credential-management-passkey",
-        createdAt: new Date().toISOString(),
-        deviceName: "Secure Device Biometric Passkey",
-        userName,
-      };
-      localStorage.setItem("cultx_biometric_credential", JSON.stringify(fallbackCred));
-      return {
-        success: true,
-        message: "Biometric security layer activated and linked to your farmer profile.",
-        method: "credential_management",
-      };
+      console.warn("Hardware WebAuthn enrollment failed:", err?.message || err);
+      return { success: false, message: "Biometric enrollment was not completed.", method: "webauthn_hardware" };
     }
   }
 
-  // Fallback for browsers with standard Credential Management but no WebAuthn
-  const fallbackCred: BiometricCredential = {
-    id: `passkey-${Date.now()}`,
-    type: "device-credential",
-    createdAt: new Date().toISOString(),
-    deviceName: "Device Security Passkey",
-    userName,
-  };
-  localStorage.setItem("cultx_biometric_credential", JSON.stringify(fallbackCred));
-  return {
-    success: true,
-    message: "Biometric security layer activated.",
-    method: "secure_fallback",
-  };
+  return { success: false, message: "This browser does not support WebAuthn.", method: "webauthn_hardware" };
 }
 
 /**
@@ -183,29 +143,21 @@ export async function verifyBiometricAuth(): Promise<BiometricAuthResult> {
 
       if (assertion) {
         return {
-          success: true,
-          message: "Biometric verification successful. Access granted.",
+          success: false,
+          message: "Passkey assertions require server-side verification before access can be granted.",
           method: "webauthn_hardware",
         };
       }
     } catch (err: any) {
-      console.warn("Hardware WebAuthn verify note:", err?.message || err);
-      // In iframe or development sandboxes, simulate authenticating existing enrolled credential
-      const storedCred = localStorage.getItem("cultx_biometric_credential");
-      if (storedCred) {
-        return {
-          success: true,
-          message: "Biometric passkey verified successfully.",
-          method: "credential_management",
-        };
-      }
+      console.warn("Hardware WebAuthn verification failed:", err?.message || err);
+      return { success: false, message: "Biometric verification was not completed.", method: "webauthn_hardware" };
     }
   }
 
-  // Fallback check
+  // No local fallback is permitted for an authentication decision.
   return {
-    success: true,
-    message: "Biometric authentication verified.",
-    method: "secure_fallback",
+    success: false,
+    message: "No biometric credential was returned by the authenticator.",
+    method: "webauthn_hardware",
   };
 }
